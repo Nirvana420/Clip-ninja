@@ -106,28 +106,26 @@ export default function ClippedForm() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
-          {/* Part 1: URL Input and Load Video - Now with glow and centered */}
+          {/* Part 1: URL Input and Load Video */}
           <div className="px-6 py-3">
-            <div className="animate-clipninja-glow">
-              <div className="flex flex-col sm:flex-row gap-2 items-start">
-                <FormField
-                  control={form.control}
-                  name="videoUrl"
-                  render={({ field }) => (
-                    <FormItem className="flex-grow">
-                      <FormLabel>YouTube Video URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://www.youtube.com/watch?v=..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="button" onClick={handleLoadVideo} className="mt-0 sm:mt-8 w-full sm:w-auto" disabled={isLoadingVideo || !form.formState.dirtyFields.videoUrl || !videoUrl}>
-                  {isLoadingVideo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Load Video
-                </Button>
-              </div>
+            <div className="flex flex-col sm:flex-row gap-2 items-start">
+              <FormField
+                control={form.control}
+                name="videoUrl"
+                render={({ field }) => (
+                  <FormItem className="flex-grow">
+                    <FormLabel>YouTube Video URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://www.youtube.com/watch?v=..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="button" onClick={handleLoadVideo} className="mt-0 sm:mt-8 w-full sm:w-auto" disabled={isLoadingVideo || !form.formState.dirtyFields.videoUrl || !videoUrl}>
+                {isLoadingVideo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Load Video
+              </Button>
             </div>
           </div>
 

@@ -97,34 +97,3 @@ body {
     @apply bg-background text-foreground;
   }
 }
-
-@layer utilities {
-  .animate-clipninja-glow {
-    animation: clipninja-rainbow-colors 5s linear infinite, clipninja-pulse-shadow 2s infinite alternate;
-    border-radius: var(--radius); /* Match card/input radius */
-    padding: 1.5rem; /* p-6, provides space for content inside and for the glow */
-    background-color: hsl(var(--card)); /* Ensure content background matches card */
-    position: relative; /* Stacking context for pseudo-elements if ever needed */
-    /* The glow itself is applied via box-shadow in the animation */
-  }
-}
-
-@keyframes clipninja-rainbow-colors {
-  0%, 100% { --glow-color: hsl(0, 90%, 65%); } /* Red */
-  16% { --glow-color: hsl(45, 90%, 65%); }  /* Orange-Yellow */
-  33% { --glow-color: hsl(120, 90%, 65%); } /* Green */
-  50% { --glow-color: hsl(180, 90%, 65%); } /* Cyan */
-  67% { --glow-color: hsl(240, 90%, 65%); } /* Blue */
-  84% { --glow-color: hsl(300, 90%, 65%); } /* Magenta */
-}
-
-@keyframes clipninja-pulse-shadow {
-  from {
-    /* Thin, less intense shadow */
-    box-shadow: 0 0 6px 1px color-mix(in srgb, var(--glow-color) 60%, transparent);
-  }
-  to {
-    /* Slightly thicker, more intense shadow for pulse effect */
-    box-shadow: 0 0 10px 3px color-mix(in srgb, var(--glow-color) 75%, transparent);
-  }
-}
