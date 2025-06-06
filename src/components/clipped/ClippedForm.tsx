@@ -83,7 +83,6 @@ export default function ClippedForm() {
     if (extractedId) {
       setIsLoadingVideo(true);
       setVideoId(extractedId);
-      // Simulate loading delay for iframe
       setTimeout(() => setIsLoadingVideo(false), 1000);
     } else {
       form.setError("videoUrl", { type: "manual", message: "Invalid YouTube URL. Please check and try again."});
@@ -104,11 +103,12 @@ export default function ClippedForm() {
         <CardTitle className="text-3xl font-headline">Create Your Clip</CardTitle>
         <CardDescription>Enter a YouTube URL, select your time range, and download the clip.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            {/* Part 1: URL Input and Load Video */}
-            <div className="space-y-4">
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
+          {/* Part 1: URL Input and Load Video - Now with glow and centered */}
+          <div className="px-6 py-3">
+            <div className="animate-clipninja-glow">
               <div className="flex flex-col sm:flex-row gap-2 items-start">
                 <FormField
                   control={form.control}
@@ -123,16 +123,17 @@ export default function ClippedForm() {
                     </FormItem>
                   )}
                 />
-                <Button type="button" onClick={handleLoadVideo} className="mt-0 sm:mt-8 w-full sm:w-auto" disabled={isLoadingVideo || !videoUrl}>
+                <Button type="button" onClick={handleLoadVideo} className="mt-0 sm:mt-8 w-full sm:w-auto" disabled={isLoadingVideo || !form.formState.dirtyFields.videoUrl || !videoUrl}>
                   {isLoadingVideo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Load Video
                 </Button>
               </div>
             </div>
+          </div>
 
-            <Separator className="my-6" />
-
-            {/* Part 2: Video Preview, Time Selection, Duration, and Download */}
+          {/* Part 2: Video Preview, Time Selection, Duration, and Download */}
+          <CardContent className="pt-0">
+            <Separator className="mb-6 mt-3" />
             <div className="space-y-6">
               {isLoadingVideo && (
                 <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
@@ -196,9 +197,9 @@ export default function ClippedForm() {
                 Download Clip
               </Button>
             </div>
-          </form>
-        </Form>
-      </CardContent>
+          </CardContent>
+        </form>
+      </Form>
       <CardFooter>
         <p className="text-xs text-muted-foreground">
           Note: Actual video download functionality is complex and may be subject to YouTube's Terms of Service. This is a UI demonstration.
