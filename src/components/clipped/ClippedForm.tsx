@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { extractYouTubeVideoId, secondsToTimeString, timeStringToSeconds } from "@/lib/timeUtils";
 import Image from "next/image";
@@ -105,87 +107,95 @@ export default function ClippedForm() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="flex flex-col sm:flex-row gap-2 items-start">
-              <FormField
-                control={form.control}
-                name="videoUrl"
-                render={({ field }) => (
-                  <FormItem className="flex-grow">
-                    <FormLabel>YouTube Video URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://www.youtube.com/watch?v=..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="button" onClick={handleLoadVideo} className="mt-0 sm:mt-8 w-full sm:w-auto" disabled={isLoadingVideo || !videoUrl}>
-                {isLoadingVideo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Load Video
+            {/* Part 1: URL Input and Load Video */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-2 items-start">
+                <FormField
+                  control={form.control}
+                  name="videoUrl"
+                  render={({ field }) => (
+                    <FormItem className="flex-grow">
+                      <FormLabel>YouTube Video URL</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://www.youtube.com/watch?v=..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="button" onClick={handleLoadVideo} className="mt-0 sm:mt-8 w-full sm:w-auto" disabled={isLoadingVideo || !videoUrl}>
+                  {isLoadingVideo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Load Video
+                </Button>
+              </div>
+            </div>
+
+            <Separator className="my-6" />
+
+            {/* Part 2: Video Preview, Time Selection, Duration, and Download */}
+            <div className="space-y-6">
+              {isLoadingVideo && (
+                <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                </div>
+              )}
+              {!isLoadingVideo && videoId && (
+                <div className="aspect-video w-full rounded-lg overflow-hidden shadow-md">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src={`https://www.youtube.com/embed/${videoId}`}
+                    title="YouTube video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
+              )}
+              {!isLoadingVideo && !videoId && (
+                 <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center overflow-hidden" data-ai-hint="video placeholder">
+                   <Image src="https://placehold.co/560x315.png" alt="Video preview placeholder" width={560} height={315} className="object-cover"/>
+                 </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Time</FormLabel>
+                      <FormControl>
+                        <Input placeholder="MM:SS or HH:MM:SS" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="endTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Time</FormLabel>
+                      <FormControl>
+                        <Input placeholder="MM:SS or HH:MM:SS" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-medium">Selected Duration</h3>
+                <p className="text-2xl text-primary font-bold">{selectedDuration}</p>
+              </div>
+              
+              <Button type="submit" className="w-full" size="lg" disabled={!videoId}>
+                Download Clip
               </Button>
             </div>
-
-            {isLoadingVideo && (
-              <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              </div>
-            )}
-            {!isLoadingVideo && videoId && (
-              <div className="aspect-video w-full rounded-lg overflow-hidden shadow-md">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${videoId}`}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
-            )}
-            {!isLoadingVideo && !videoId && (
-               <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center overflow-hidden" data-ai-hint="video player placeholder">
-                 <Image src="https://placehold.co/560x315.png?text=Video+Preview" alt="Video preview placeholder" width={560} height={315} className="object-cover"/>
-               </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Time</FormLabel>
-                    <FormControl>
-                      <Input placeholder="MM:SS or HH:MM:SS" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="endTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>End Time</FormLabel>
-                    <FormControl>
-                      <Input placeholder="MM:SS or HH:MM:SS" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div>
-              <h3 className="text-lg font-medium">Selected Duration</h3>
-              <p className="text-2xl text-primary font-bold">{selectedDuration}</p>
-            </div>
-            
-            <Button type="submit" className="w-full" size="lg" disabled={!videoId}>
-              Download Clip
-            </Button>
           </form>
         </Form>
       </CardContent>
