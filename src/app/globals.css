@@ -44,22 +44,22 @@ body {
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
   .dark {
-    --background: 240 10% 4%; /* Deep, dark blue-gray, almost black */
+    --background: 240 10% 3.9%; /* Deep dark charcoal, almost black */
     --foreground: 0 0% 98%;    /* White text for high contrast */
 
-    --card: 240 8% 8%;        /* Slightly lighter than background, very dark gray */
+    --card: 240 8% 6.5%;        /* Slightly lighter than background, very dark gray */
     --card-foreground: 0 0% 98%;
 
-    --popover: 240 10% 3%;     /* Even darker for popovers */
+    --popover: 240 10% 2.5%;     /* Even darker for popovers, almost pure black */
     --popover-foreground: 0 0% 98%;
 
-    --primary: 200 100% 50%;   /* Vibrant cyan/blue - for primary actions */
+    --primary: 200 100% 55%;   /* Vibrant cyan/blue - bright for pop */
     --primary-foreground: 240 6% 10%; /* Dark text for contrast on primary */
 
-    --secondary: 240 8% 12%;  /* A lighter shade of the dark background */
+    --secondary: 240 8% 10%;  /* A lighter shade of the dark background */
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 240 8% 10%;       /* For muted backgrounds, slightly darker than card */
+    --muted: 240 8% 8%;       /* For muted backgrounds, slightly darker than card */
     --muted-foreground: 0 0% 60%; /* Lighter gray text for muted elements */
 
     --accent: 330 90% 60%;     /* Vibrant pink/magenta - for accents */
@@ -68,8 +68,8 @@ body {
     --destructive: 0 72% 51%; /* Vivid red for destructive actions */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 8% 15%;     /* Border color, subtle */
-    --input: 240 8% 15%;       /* Input background, same as border */
+    --border: 240 8% 12%;     /* Border color, subtle, slightly lighter than card */
+    --input: 240 8% 12%;       /* Input background, same as border */
     --ring: 200 100% 60%;     /* Lighter primary for focus rings, for visibility */
     
     --chart-1: 200 100% 50%; /* Primary */
