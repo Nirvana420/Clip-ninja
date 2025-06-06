@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'Clipped - YouTube Clip Downloader',
+  title: 'Clip Ninja - YouTube Clip Downloader',
   description: 'Easily select and download specific parts of YouTube videos.',
 };
 
