@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { extractYouTubeVideoId, secondsToTimeString, timeStringToSeconds } from "@/lib/timeUtils";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const youtubeUrlRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 const timeFormatRegex = /^(?:[0-5]?\d:[0-5]?\d)|(?:(?:\d{1,2}:)?[0-5]?\d:[0-5]?\d)$/;
@@ -83,7 +84,8 @@ export default function ClippedForm() {
     if (extractedId) {
       setIsLoadingVideo(true);
       setVideoId(extractedId);
-      setTimeout(() => setIsLoadingVideo(false), 1000);
+      // Simulate video load time
+      setTimeout(() => setIsLoadingVideo(false), 1000); 
     } else {
       form.setError("videoUrl", { type: "manual", message: "Invalid YouTube URL. Please check and try again."});
       setVideoId(null);
@@ -107,7 +109,7 @@ export default function ClippedForm() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
           {/* Part 1: URL Input and Load Video */}
-          <div className="px-6 py-3">
+          <div className="px-6 py-4">
             <div className="flex flex-col sm:flex-row gap-2 items-start">
               <FormField
                 control={form.control}
@@ -116,7 +118,11 @@ export default function ClippedForm() {
                   <FormItem className="flex-grow">
                     <FormLabel>YouTube Video URL</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://www.youtube.com/watch?v=..." {...field} />
+                      <Input 
+                        placeholder="https://www.youtube.com/watch?v=..." 
+                        {...field} 
+                        className="focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -129,9 +135,10 @@ export default function ClippedForm() {
             </div>
           </div>
 
+          <Separator className="mb-6" />
+
           {/* Part 2: Video Preview, Time Selection, Duration, and Download */}
           <CardContent className="pt-0">
-            <Separator className="mb-6 mt-3" />
             <div className="space-y-6">
               {isLoadingVideo && (
                 <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
