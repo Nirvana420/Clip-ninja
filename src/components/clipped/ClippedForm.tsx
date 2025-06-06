@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -109,7 +108,7 @@ export default function ClippedForm() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
           {/* Part 1: URL Input and Load Video */}
-          <div className="px-6 py-4">
+           <div className="px-6 py-4 mb-2"> {/* Adjusted padding/margin as needed */}
             <div className="flex flex-col sm:flex-row gap-2 items-start">
               <FormField
                 control={form.control}
@@ -172,7 +171,10 @@ export default function ClippedForm() {
                     <FormItem>
                       <FormLabel>Start Time</FormLabel>
                       <FormControl>
-                        <Input placeholder="MM:SS or HH:MM:SS" {...field} />
+                        <div className="flex items-center relative">
+                          <Input placeholder="MM:SS or HH:MM:SS" {...field} className="w-full"/>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">:</span>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -185,7 +187,10 @@ export default function ClippedForm() {
                     <FormItem>
                       <FormLabel>End Time</FormLabel>
                       <FormControl>
-                        <Input placeholder="MM:SS or HH:MM:SS" {...field} />
+                        <div className="flex items-center relative">
+                          <Input placeholder="MM:SS or HH:MM:SS" {...field} className="w-full"/>
+                           <span className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">:</span>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
