@@ -92,10 +92,55 @@ export default function ClippedForm() {
   };
 
   function onSubmit(data: ClippedFormValues) {
-    toast({
-      title: "Clip Download Initiated (Mock)",
-      description: `Downloading clip of ${videoId} from ${data.startTime} to ${data.endTime}. This is a placeholder.`,
-    });
+    // Calculate duration as difference between end and start time
+    const startSeconds = timeStringToSeconds(data.startTime);
+    const endSeconds = timeStringToSeconds(data.endTime);
+    const duration = secondsToTimeString(endSeconds - startSeconds);
+
+    fetch("http://localhost:5000/trim-video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        youtube_url: data.videoUrl,
+        start_time: data.startTime.length === 5 ? `00:${data.startTime}` : data.startTime,
+        duration: duration.length === 5 ? `00:${duration}` : duration,
+      }),
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        if (result.error) {
+          toast({
+            title: "Error",
+            description: result.error,
+            variant: "destructive",
+          });
+        } else if (result.download_url) {
+          toast({
+            title: "Clip Processed!",
+            description: `Ready for download: ${result.filename}`,
+          });
+          // Trigger download in browser using backend's download_url
+          const downloadUrl = `http://localhost:5000${result.download_url}`;
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = result.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } else {
+          toast({
+            title: "Clip Processed!",
+            description: result.output || "Your clip is being processed.",
+          });
+        }
+      })
+      .catch((err) => {
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive",
+        });
+      });
   }
 
   return (
@@ -204,7 +249,22 @@ export default function ClippedForm() {
               </div>
               
               <Button type="submit" className="w-full" size="lg" disabled={!videoId}>
-                Download Clip
+                Download Selected Clip
+              </Button>
+              <Button
+                type="button"
+                className="w-full mt-2"
+                size="lg"
+                variant="outline"
+                disabled={!videoId}
+                onClick={() => {
+                  toast({
+                    title: "Entire Clip Download Initiated (Mock)",
+                    description: `Downloading entire video: ${videoId}. This is a placeholder.`,
+                  });
+                }}
+              >
+                Download Entire Clip
               </Button>
             </div>
           </CardContent>
