@@ -145,5 +145,42 @@ def main():
 
     print(f"Saved to: {os.path.abspath(output_file)}")
 
+
+# Add this to logic.py (at the bottom, before the if __name__ block)
+def process_video(youtube_url, start_time, duration):
+    """Main processing function for Flask API"""
+    try:
+        # Get video title
+        video_title = get_video_title(youtube_url)
+        base_filename = f"{video_title}_{start_time.replace(':', '-')}_{duration.replace(':', '-')}"
+        temp_file = f"temp_{base_filename}.mp4"
+        output_file = f"{base_filename}.mp4"
+
+        # Handle duplicate filenames
+        counter = 1
+        while os.path.exists(output_file):
+            output_file = f"{base_filename}_{counter}.mp4"
+            counter += 1
+
+        # Step 1: Download trimmed segment
+        download_trimmed_segment(youtube_url, start_time, duration, temp_file)
+
+        # Step 2: Convert if needed
+        if is_premiere_compatible(temp_file):
+            os.rename(temp_file, output_file)
+        else:
+            convert_to_premiere(temp_file, output_file)
+            os.remove(temp_file)
+
+        return output_file  # Return the final filename
+        
+    except Exception as e:
+        # Clean up if something went wrong
+        if 'temp_file' in locals() and os.path.exists(temp_file):
+            os.remove(temp_file)
+        raise  # Re-raise the exception for Flask to handle
+
+
+
 if __name__ == "__main__":
     main()
