@@ -45,6 +45,7 @@ export default function ClippedForm() {
   const [videoId, setVideoId] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<string>("00:00");
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<ClippedFormValues>({
@@ -92,6 +93,7 @@ export default function ClippedForm() {
   };
 
   function onSubmit(data: ClippedFormValues) {
+    setIsProcessing(true);
     // Calculate duration as difference between end and start time
     const startSeconds = timeStringToSeconds(data.startTime);
     const endSeconds = timeStringToSeconds(data.endTime);
@@ -108,6 +110,7 @@ export default function ClippedForm() {
     })
       .then((res) => res.json())
       .then((result) => {
+        setIsProcessing(false);
         if (result.error) {
           toast({
             title: "Error",
@@ -135,6 +138,7 @@ export default function ClippedForm() {
         }
       })
       .catch((err) => {
+        setIsProcessing(false);
         toast({
           title: "Error",
           description: err.message,
@@ -146,8 +150,8 @@ export default function ClippedForm() {
   return (
     <Card className="w-full max-w-2xl shadow-2xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-headline">Create Your Clip</CardTitle>
-        <CardDescription>Enter a YouTube URL, select your time range, and download the clip.</CardDescription>
+        <CardTitle as="h2" className="text-3xl font-headline">Create Your Clip</CardTitle>
+        <CardDescription as="p">Enter a YouTube URL, select your time range, and download the clip.</CardDescription>
       </CardHeader>
 
       <Form {...form}>
@@ -184,12 +188,18 @@ export default function ClippedForm() {
           {/* Part 2: Video Preview, Time Selection, Duration, and Download */}
           <CardContent className="pt-0">
             <div className="space-y-6">
-              {isLoadingVideo && (
+              {isProcessing && (
+                <div className="aspect-video w-full bg-muted rounded-lg flex flex-col items-center justify-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
+                  <span className="text-lg text-primary">Processing your clip...</span>
+                </div>
+              )}
+              {!isProcessing && isLoadingVideo && (
                 <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
                   <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
               )}
-              {!isLoadingVideo && videoId && (
+              {!isProcessing && !isLoadingVideo && videoId && (
                 <div className="aspect-video w-full rounded-lg overflow-hidden shadow-md">
                   <iframe
                     width="100%"
@@ -202,10 +212,10 @@ export default function ClippedForm() {
                   ></iframe>
                 </div>
               )}
-              {!isLoadingVideo && !videoId && (
-                 <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center overflow-hidden" data-ai-hint="video placeholder">
-                   <Image src="https://placehold.co/560x315.png" alt="Video preview placeholder" width={560} height={315} className="object-cover"/>
-                 </div>
+              {!isProcessing && !isLoadingVideo && !videoId && (
+                <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center overflow-hidden" data-ai-hint="video placeholder">
+                  <Image src="https://placehold.co/560x315.png" alt="Video preview placeholder" width={560} height={315} className="object-cover"/>
+                </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -248,7 +258,7 @@ export default function ClippedForm() {
                 <p className="text-2xl text-primary font-bold">{selectedDuration}</p>
               </div>
               
-              <Button type="submit" className="w-full" size="lg" disabled={!videoId}>
+              <Button type="submit" className="w-full" size="lg" disabled={!videoId} aria-label="Download selected YouTube clip">
                 Download Selected Clip
               </Button>
               <Button
@@ -257,6 +267,7 @@ export default function ClippedForm() {
                 size="lg"
                 variant="outline"
                 disabled={!videoId}
+                aria-label="Download entire YouTube video (mock)"
                 onClick={() => {
                   toast({
                     title: "Entire Clip Download Initiated (Mock)",
