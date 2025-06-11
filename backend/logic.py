@@ -93,9 +93,9 @@ def convert_to_premiere(input_file, output_file):
         # Copy audio directly if it's already compatible
         ffmpeg_cmd += ["-c:a", "copy", "-map", "0:a:0"]
     else:
-        # Re-encode audio to AAC if not compatible
+        # Re-encode audio to AAC at 256k (one step below 320k) if not compatible
         ffmpeg_cmd += [
-            "-c:a", "aac", "-b:a", "320k", "-map", "0:a:0"
+            "-c:a", "aac", "-b:a", "256k", "-map", "0:a:0"
         ]
 
     # Add video args and output options
@@ -147,7 +147,7 @@ def main():
 
 
 # Add this to logic.py (at the bottom, before the if __name__ block)
-def process_video(youtube_url, start_time, duration):
+def process_video(youtube_url, start_time, duration, progress_callback=None):
     """Main processing function for Flask API"""
     try:
         # Get video title
@@ -163,7 +163,11 @@ def process_video(youtube_url, start_time, duration):
             counter += 1
 
         # Step 1: Download trimmed segment
+        if progress_callback:
+            progress_callback(10)
         download_trimmed_segment(youtube_url, start_time, duration, temp_file)
+        if progress_callback:
+            progress_callback(60)
 
         # Step 2: Convert if needed
         if is_premiere_compatible(temp_file):
@@ -171,7 +175,11 @@ def process_video(youtube_url, start_time, duration):
         else:
             convert_to_premiere(temp_file, output_file)
             os.remove(temp_file)
+        if progress_callback:
+            progress_callback(90)
 
+        if progress_callback:
+            progress_callback(100)
         return output_file  # Return the final filename
         
     except Exception as e:
