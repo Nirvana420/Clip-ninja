@@ -1,15 +1,15 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
 import logic
 import os
+from pathlib import Path
 
 app = Flask(__name__)
 CORS(app)
 
-# Configuration
-UPLOAD_FOLDER = 'processed_videos'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Configuration - Use the same output directory as logic.py
+OUTPUT_FOLDER = 'outputs'
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 @app.route("/trim-video", methods=["POST"])
 def trim_video():
@@ -20,33 +20,43 @@ def trim_video():
         return jsonify({"error": "Missing required fields"}), 400
 
     try:
-        # Process video
-        output_file = logic.process_video(
-            data["youtube_url"],
-            data["start_time"],
-            data["duration"]
+        # Process video with progress tracking
+        result = logic.process_video(
+            youtube_url=data["youtube_url"],
+            start_time=data["start_time"],
+            duration=data["duration"],
+            progress_callback=None  # Add real progress callback if needed
         )
         
-        # Move to uploads folder
-        final_path = os.path.join(UPLOAD_FOLDER, secure_filename(output_file))
-        os.rename(output_file, final_path)
+        # Verify the file exists
+        output_path = Path(result["output_file"])
+        if not output_path.exists():
+            raise FileNotFoundError("Processed file not found")
         
         return jsonify({
             "status": "success",
-            "download_url": f"/download/{os.path.basename(final_path)}",
-            "filename": os.path.basename(final_path)
+            "download_url": f"/download/{output_path.name}",
+            "filename": output_path.name,
+            "file_size": result["file_size"]
         })
         
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Clean up any partial files
+        if 'output_path' in locals() and output_path.exists():
+            output_path.unlink()
+        return jsonify({
+            "error": str(e),
+            "message": "Video processing failed"
+        }), 500
 
 @app.route('/download/<filename>')
 def download_file(filename):
     return send_from_directory(
-        UPLOAD_FOLDER,
-        secure_filename(filename),
-        as_attachment=True
+        OUTPUT_FOLDER,
+        filename,
+        as_attachment=True,
+        mimetype='video/mp4'
     )
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
