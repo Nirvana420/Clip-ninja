@@ -3,6 +3,43 @@ import json
 import sys
 import os
 import re
+import uuid
+from pathlib import Path
+from datetime import datetime
+import shutil
+from flask import Flask, Response, request, stream_with_context, jsonify
+import time
+
+class FileManager:
+    def __init__(self, base_dir="."):
+        self.base_dir = Path(base_dir)
+        self.temp_dir = self.base_dir / "temp"
+        self.output_dir = self.base_dir / "outputs"
+        self._setup_directories()
+        
+    def _setup_directories(self):
+        """Create required directories if they don't exist"""
+        self.temp_dir.mkdir(exist_ok=True)
+        self.output_dir.mkdir(exist_ok=True)
+        
+    def create_temp_file(self, prefix="temp_", suffix=".mp4"):
+        """Create a unique temp file path"""
+        temp_filename = f"{prefix}{uuid.uuid4().hex}{suffix}"
+        return self.temp_dir / temp_filename
+        
+    def create_output_filename(self, base_name):
+        """Create a collision-free output filename with timestamp"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_name = self.sanitize_filename(base_name)
+        return self.output_dir / f"{timestamp}_{base_name}.mp4"
+        
+    @staticmethod
+    def sanitize_filename(filename):
+        """Make filenames safe"""
+        filename = re.sub(r'[^\w\-_\. ]', '_', filename)
+        return filename[:100]  # Reasonable length limit
+    
+file_manager = FileManager()
 
 def get_video_title(youtube_url):
     """Extract video title using yt-dlp"""
@@ -16,9 +53,8 @@ def get_video_title(youtube_url):
         print("Error getting video title:", result.stderr)
         return "trimmed_video"
     title = result.stdout.strip()
-    # Remove special characters and sanitize
     title = re.sub(r'[^\w\-_\. ]', '_', title)
-    return title[:50]  # Limit length to avoid long filenames
+    return title[:50]
 
 def is_premiere_compatible(file_path):
     """Check if file is natively Premiere Pro compatible"""
@@ -74,121 +110,121 @@ def download_trimmed_segment(youtube_url, start_time, duration, temp_file):
     subprocess.run(ffmpeg_cmd, check=True)
 
 def convert_to_premiere(input_file, output_file):
-    """Convert video to Premiere-compatible format, copying audio when possible"""
+    """Convert video to Premiere-compatible format with faster conversion"""
     video_args = [
-        "-c:v", "libx264", "-crf", "18", "-preset", "fast",
-        "-pix_fmt", "yuv420p"
-    ]
+    "-c:v", "libx264", 
+    "-crf", "21",  
+    "-preset", "superfast",
+    "-pix_fmt", "yuv420p",
+    "-x264-params", "ref=4:me=hex"
+]
 
-    # Detect audio codec
     audio_codec = get_audio_codec(input_file)
 
     ffmpeg_cmd = ["ffmpeg", "-i", input_file]
-
-    # Map video stream
     ffmpeg_cmd += ["-map", "0:v:0"]
 
-    # Copy or re-encode audio based on codec
     if audio_codec in ['aac', 'mp3']:
-        # Copy audio directly if it's already compatible
-        ffmpeg_cmd += ["-c:a", "copy", "-map", "0:a:0"]
+        ffmpeg_cmd += ["-c:a", "copy"]
     else:
-        # Re-encode audio to AAC at 256k (one step below 320k) if not compatible
         ffmpeg_cmd += [
-            "-c:a", "aac", "-b:a", "256k", "-map", "0:a:0"
+            "-c:a", "aac", 
+            "-b:a", "192k"  # Reduced from 256k for faster encoding
         ]
+    ffmpeg_cmd += ["-map", "0:a:0"]
 
-    # Add video args and output options
     ffmpeg_cmd += video_args + [
         "-movflags", "+faststart",
-        "-threads", "4",
+        "-threads", "0",  # Let ffmpeg decide optimal thread count
         output_file
     ]
 
     subprocess.run(ffmpeg_cmd, check=True)
 
+def process_video(youtube_url, start_time, duration, progress_callback=None):
+    """Main processing function for both Flask API and CLI"""
+    try:
+        video_title = get_video_title(youtube_url)
+        base_name = f"{video_title}_{start_time.replace(':', '-')}_{duration.replace(':', '-')}"
+        
+        temp_file = file_manager.create_temp_file()
+        output_file = file_manager.create_output_filename(base_name)
+        
+        if progress_callback:
+            progress_callback(10)
+            
+        download_trimmed_segment(youtube_url, start_time, duration, str(temp_file))
+        
+        if progress_callback:
+            progress_callback(60)
+            
+        if is_premiere_compatible(str(temp_file)):
+            temp_file.rename(output_file)
+        else:
+            convert_to_premiere(str(temp_file), str(output_file))
+            temp_file.unlink()
+            
+        if progress_callback:
+            progress_callback(100)
+            
+        return {
+            "status": "success",
+            "output_file": str(output_file),
+            "file_size": output_file.stat().st_size // (1024 * 1024)
+        }
+        
+    except Exception as e:
+        if 'temp_file' in locals() and temp_file.exists():
+            temp_file.unlink()
+        raise
+
+# SSE streaming generator
+def process_video_sse(youtube_url, start_time, duration):
+    def sse_progress(percent, message=None):
+        data = {'progress': percent}
+        if message:
+            data['message'] = message
+        yield f"data: {json.dumps(data)}\n\n"
+
+    try:
+        video_title = get_video_title(youtube_url)
+        base_name = f"{video_title}_{start_time.replace(':', '-')}_{duration.replace(':', '-')}"
+        temp_file = file_manager.create_temp_file()
+        output_file = file_manager.create_output_filename(base_name)
+
+        yield from sse_progress(10, "Downloading trimmed segment...")
+        download_trimmed_segment(youtube_url, start_time, duration, str(temp_file))
+
+        yield from sse_progress(60, "Checking/Converting for Premiere compatibility...")
+        if is_premiere_compatible(str(temp_file)):
+            temp_file.rename(output_file)
+        else:
+            convert_to_premiere(str(temp_file), str(output_file))
+            temp_file.unlink()
+
+        yield from sse_progress(100, "Done!")
+        result = {
+            "status": "success",
+            "output_file": str(output_file),
+            "file_size": output_file.stat().st_size // (1024 * 1024)
+        }
+        yield f"data: {json.dumps(result)}\n\n"
+    except Exception as e:
+        error = {'status': 'error', 'message': str(e)}
+        yield f"data: {json.dumps(error)}\n\n"
+
 def main():
     if len(sys.argv) < 4:
         print("Usage: python trim_youtube.py <youtube_url> <start_time> <duration>")
-        print("Example: python trim_youtube.py 'https://youtu.be/dQw4w9WgXcQ'  00:01:30 00:00:15")
+        print("Example: python trim_youtube.py 'https://youtu.be/dQw4w9WgXcQ' 00:01:30 00:00:15")
         sys.exit(1)
 
     youtube_url = sys.argv[1]
     start_time = sys.argv[2]
     duration = sys.argv[3]
 
-    # Get video title for filename
-    video_title = get_video_title(youtube_url)
-    base_filename = f"{video_title}_{start_time.replace(':', '-')}_{duration.replace(':', '-')}"
-    temp_file = f"temp_{base_filename}.mp4"
-    output_file = f"{base_filename}.mp4"
-
-    # Avoid overwriting existing files
-    counter = 1
-    while os.path.exists(output_file):
-        output_file = f"{base_filename}_{counter}.mp4"
-        counter += 1
-
-    # Step 1: Download only the trimmed segment
-    print(f"⏳ Downloading trimmed segment: {start_time} to {duration}...")
-    download_trimmed_segment(youtube_url, start_time, duration, temp_file)
-
-    # Step 2: Convert only if needed
-    if is_premiere_compatible(temp_file):
-        os.rename(temp_file, output_file)
-        print("✅ Trimmed clip is already Premiere-compatible!")
-    else:
-        print("🔄 Converting to Premiere-compatible format...")
-        convert_to_premiere(temp_file, output_file)
-        os.remove(temp_file)
-        print("✅ Conversion complete!")
-
-    print(f"Saved to: {os.path.abspath(output_file)}")
-
-
-# Add this to logic.py (at the bottom, before the if __name__ block)
-def process_video(youtube_url, start_time, duration, progress_callback=None):
-    """Main processing function for Flask API"""
-    try:
-        # Get video title
-        video_title = get_video_title(youtube_url)
-        base_filename = f"{video_title}_{start_time.replace(':', '-')}_{duration.replace(':', '-')}"
-        temp_file = f"temp_{base_filename}.mp4"
-        output_file = f"{base_filename}.mp4"
-
-        # Handle duplicate filenames
-        counter = 1
-        while os.path.exists(output_file):
-            output_file = f"{base_filename}_{counter}.mp4"
-            counter += 1
-
-        # Step 1: Download trimmed segment
-        if progress_callback:
-            progress_callback(10)
-        download_trimmed_segment(youtube_url, start_time, duration, temp_file)
-        if progress_callback:
-            progress_callback(60)
-
-        # Step 2: Convert if needed
-        if is_premiere_compatible(temp_file):
-            os.rename(temp_file, output_file)
-        else:
-            convert_to_premiere(temp_file, output_file)
-            os.remove(temp_file)
-        if progress_callback:
-            progress_callback(90)
-
-        if progress_callback:
-            progress_callback(100)
-        return output_file  # Return the final filename
-        
-    except Exception as e:
-        # Clean up if something went wrong
-        if 'temp_file' in locals() and os.path.exists(temp_file):
-            os.remove(temp_file)
-        raise  # Re-raise the exception for Flask to handle
-
-
+    result = process_video(youtube_url, start_time, duration)
+    print(f"✅ Processing complete! Saved to: {result['output_file']} ({result['file_size']} MB)")
 
 if __name__ == "__main__":
     main()
