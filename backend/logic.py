@@ -7,6 +7,8 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 import shutil
+from flask import Flask, Response, request, stream_with_context, jsonify
+import time
 
 class FileManager:
     def __init__(self, base_dir="."):
@@ -175,6 +177,41 @@ def process_video(youtube_url, start_time, duration, progress_callback=None):
         if 'temp_file' in locals() and temp_file.exists():
             temp_file.unlink()
         raise
+
+# SSE streaming generator
+def process_video_sse(youtube_url, start_time, duration):
+    def sse_progress(percent, message=None):
+        data = {'progress': percent}
+        if message:
+            data['message'] = message
+        yield f"data: {json.dumps(data)}\n\n"
+
+    try:
+        video_title = get_video_title(youtube_url)
+        base_name = f"{video_title}_{start_time.replace(':', '-')}_{duration.replace(':', '-')}"
+        temp_file = file_manager.create_temp_file()
+        output_file = file_manager.create_output_filename(base_name)
+
+        yield from sse_progress(10, "Downloading trimmed segment...")
+        download_trimmed_segment(youtube_url, start_time, duration, str(temp_file))
+
+        yield from sse_progress(60, "Checking/Converting for Premiere compatibility...")
+        if is_premiere_compatible(str(temp_file)):
+            temp_file.rename(output_file)
+        else:
+            convert_to_premiere(str(temp_file), str(output_file))
+            temp_file.unlink()
+
+        yield from sse_progress(100, "Done!")
+        result = {
+            "status": "success",
+            "output_file": str(output_file),
+            "file_size": output_file.stat().st_size // (1024 * 1024)
+        }
+        yield f"data: {json.dumps(result)}\n\n"
+    except Exception as e:
+        error = {'status': 'error', 'message': str(e)}
+        yield f"data: {json.dumps(error)}\n\n"
 
 def main():
     if len(sys.argv) < 4:
