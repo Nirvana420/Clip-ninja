@@ -105,7 +105,7 @@ export default function ClippedForm() {
     const duration = secondsToTimeString(endSeconds - startSeconds);
 
     try {
-      const response = await fetch("http://localhost:5000/api/process_video_sse", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/process_video_sse`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -143,7 +143,7 @@ export default function ClippedForm() {
                 // Automatically trigger download
                 const filename = parsed.output_file.split(/[\\/]/).pop();
                 if (filename) {
-                  const downloadUrl = `http://localhost:5000/download/${filename}`;
+                  const downloadUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/download/${filename}`;
                   const a = document.createElement('a');
                   a.href = downloadUrl;
                   a.download = filename;
