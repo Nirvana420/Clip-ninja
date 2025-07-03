@@ -53,15 +53,17 @@ def get_cookies_args():
 def get_video_info(youtube_url):
     """Get video title and stream URLs in one request"""
     try:
-        cmd = [
-            "yt-dlp", 
+        def yt_dlp_command(args):
+            return ["yt-dlp", *args]
+
+        cmd = yt_dlp_command([
             "--get-title",
             "--get-url",
             "-f", "bestvideo+bestaudio",
             *get_cookies_args(),
             "--", youtube_url
-        ]
-        
+        ])
+
         result = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
@@ -69,18 +71,18 @@ def get_video_info(youtube_url):
             text=True,
             check=True
         )
-        
+
         output = result.stdout.strip().split('\n')
         if not output:
             raise ValueError("No data received from YouTube")
-        
+
         title = output[0].strip()
-        title = re.sub(r'[^\w\-_\. ]', '_', title)
+        title = re.sub(r'[\w\-_\. ]', '_', title)
         stream_urls = [url.strip() for url in output[1:] if url.strip()]
-        
+
         if not stream_urls:
             raise ValueError("No stream URLs found")
-            
+
         return {
             'title': title[:50],
             'stream_urls': stream_urls
