@@ -40,22 +40,55 @@ class FileManager:
     
 file_manager = FileManager()
 
-def get_video_title(youtube_url):
-    """Extract video title using yt-dlp"""
+# Add cookies support
+COOKIES_PATH = os.environ.get("COOKIES_PATH", "cookies.txt")
+
+def get_cookies_args():
+    """Return cookies arguments if valid cookies file exists"""
+    if Path(COOKIES_PATH).exists():
+        return ["--cookies", COOKIES_PATH]
+    print("⚠️ Cookies file not found, proceeding without authentication")
+    return []
+
+def get_video_info(youtube_url):
+    """Get video title and stream URLs in one request"""
     try:
+        cmd = [
+            "yt-dlp", 
+            "--get-title",
+            "--get-url",
+            "-f", "bestvideo+bestaudio",
+            *get_cookies_args(),
+            "--", youtube_url
+        ]
+        
         result = subprocess.run(
-            ["yt-dlp", "--get-title", youtube_url],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             check=True
         )
-        title = result.stdout.strip()
+        
+        output = result.stdout.strip().split('\n')
+        if not output:
+            raise ValueError("No data received from YouTube")
+        
+        title = output[0].strip()
         title = re.sub(r'[^\w\-_\. ]', '_', title)
-        return title[:50]
+        stream_urls = [url.strip() for url in output[1:] if url.strip()]
+        
+        if not stream_urls:
+            raise ValueError("No stream URLs found")
+            
+        return {
+            'title': title[:50],
+            'stream_urls': stream_urls
+        }
     except subprocess.CalledProcessError as e:
-        print(f"Error getting video title: {e.stderr}")
-        return "trimmed_video"
+        error_msg = f"Error getting video info: {e.stderr}"
+        print(error_msg)
+        raise ValueError(error_msg) from e
 
 def is_editing_compatible(file_path):
     """Check if file is compatible with editing software (Premiere, DaVinci, Final Cut)"""
@@ -112,31 +145,21 @@ def get_audio_codec(file_path):
         print(f"Audio codec detection failed: {str(e)}")
         return None
 
-def download_trimmed_segment(youtube_url, start_time, duration, temp_file):
-    """Download only the trimmed segment without full download"""
+def download_trimmed_segment(stream_urls, start_time, duration, temp_file):
+    """Download only the trimmed segment using pre-fetched URLs"""
     try:
-        # Get stream URLs with format info
-        result = subprocess.run(
-            ["yt-dlp", "-f", "bestvideo+bestaudio", "-g", "--", youtube_url],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=True
-        )
-        
-        urls = result.stdout.strip().split('\n')
-        if not urls or not urls[0]:
-            raise ValueError("No streams found for the video")
-        
+        if not stream_urls:
+            raise ValueError("No streams provided for download")
+            
         ffmpeg_cmd = [
             "ffmpeg",
             "-ss", start_time,
-            "-i", urls[0],
+            "-i", stream_urls[0],
         ]
         
         # Add audio stream if available
-        if len(urls) > 1 and urls[1]:
-            ffmpeg_cmd.extend(["-ss", start_time, "-i", urls[1]])
+        if len(stream_urls) > 1:
+            ffmpeg_cmd.extend(["-ss", start_time, "-i", stream_urls[1]])
         
         ffmpeg_cmd.extend([
             "-t", duration,
@@ -145,18 +168,19 @@ def download_trimmed_segment(youtube_url, start_time, duration, temp_file):
         ])
         
         # Handle stream mapping
-        if len(urls) > 1 and urls[1]:
+        if len(stream_urls) > 1:
             ffmpeg_cmd.extend(["-map", "0:v:0", "-map", "1:a:0"])
         else:
-            ffmpeg_cmd.extend(["-map", "0:v:0", "-map", "0:a:0?"])  # '?' ignores missing audio
+            ffmpeg_cmd.extend(["-map", "0:v:0", "-map", "0:a:0?"])
         
         ffmpeg_cmd.append(str(temp_file))
         
         subprocess.run(ffmpeg_cmd, check=True)
     
     except subprocess.CalledProcessError as e:
-        print(f"Download failed: {e.stderr}")
-        raise
+        error_msg = f"Download failed: {e.stderr}"
+        print(error_msg)
+        raise RuntimeError(error_msg) from e
 
 def convert_to_premiere(input_file, output_file):
     """Convert video to editing-compatible format"""
@@ -212,7 +236,11 @@ def process_video_sse(youtube_url, start_time, duration):
         def log_video_event(*a, **kw):
             pass  # Dummy logger if import fails
     try:
-        video_title = get_video_title(youtube_url)
+        # Get all info in one request
+        video_info = get_video_info(youtube_url)
+        video_title = video_info['title']
+        stream_urls = video_info['stream_urls']
+        
         base_name = f"{video_title}_{start_time.replace(':', '-')}_{duration.replace(':', '-')}"
         
         temp_file = file_manager.create_temp_file()
@@ -230,7 +258,7 @@ def process_video_sse(youtube_url, start_time, duration):
         yield f"data: {json.dumps({'progress': 40})}\n\n"
         
         # Download phase
-        download_trimmed_segment(youtube_url, start_time, duration, temp_file)
+        download_trimmed_segment(stream_urls, start_time, duration, temp_file)
         
         # Progress update: 60%
         yield f"data: {json.dumps({'progress': 60})}\n\n"
@@ -285,7 +313,11 @@ def process_video(youtube_url, start_time, duration, progress_callback=None):
     output_file = None
     
     try:
-        video_title = get_video_title(youtube_url)
+        # Get all info in one request
+        video_info = get_video_info(youtube_url)
+        video_title = video_info['title']
+        stream_urls = video_info['stream_urls']
+        
         base_name = f"{video_title}_{start_time.replace(':', '-')}_{duration.replace(':', '-')}"
         
         temp_file = file_manager.create_temp_file()
@@ -294,7 +326,8 @@ def process_video(youtube_url, start_time, duration, progress_callback=None):
         if progress_callback:
             progress_callback(10)
             
-        download_trimmed_segment(youtube_url, start_time, duration, str(temp_file))
+        # Download using pre-fetched URLs
+        download_trimmed_segment(stream_urls, start_time, duration, str(temp_file))
         
         if progress_callback:
             progress_callback(60)
